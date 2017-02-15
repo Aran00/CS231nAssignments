@@ -113,7 +113,11 @@ def svm_loss_vectorized(W, X, y, reg):
   for idx, cls in enumerate(y):
     A[idx][cls] = cls_sum[idx]
   dW = X.T.dot(greater_zero_matrix - A)/num_train
-    
+  
+  # Add regularization to the loss.
+  loss += 0.5 * reg * np.sum(W * W)
+  # np.sum(W*W) is the same as np.linalg.norm(wc1) + ... + np.linalg.norm(wcC), so its gradient is (dwc1, dwc2, ..., dwcC) = 2*W  
+  dW += reg * W
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################

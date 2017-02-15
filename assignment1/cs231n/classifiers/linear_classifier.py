@@ -49,7 +49,9 @@ class LinearClassifier(object):
       # Hint: Use np.random.choice to generate indices. Sampling with         #
       # replacement is faster than sampling without replacement.              #
       #########################################################################
-      pass
+      sample_indexes = np.random.choice(num_train, batch_size, replace=True)
+      X_batch = X[sample_indexes]
+      y_batch = y[sample_indexes]
       #########################################################################
       #                       END OF YOUR CODE                                #
       #########################################################################
@@ -63,7 +65,7 @@ class LinearClassifier(object):
       # TODO:                                                                 #
       # Update the weights using the gradient and the learning rate.          #
       #########################################################################
-      pass
+      self.W -= learning_rate * grad
       #########################################################################
       #                       END OF YOUR CODE                                #
       #########################################################################
@@ -80,7 +82,9 @@ class LinearClassifier(object):
 
     Inputs:
     - X: D x N array of training data. Each column is a D-dimensional point.
-
+    
+    Me: I still assume X is N x D. Seems N x D program runs much faster than D x N (why?)
+    
     Returns:
     - y_pred: Predicted labels for the data in X. y_pred is a 1-dimensional
       array of length N, and each element is an integer giving the predicted
@@ -91,7 +95,7 @@ class LinearClassifier(object):
     # TODO:                                                                   #
     # Implement this method. Store the predicted labels in y_pred.            #
     ###########################################################################
-    pass
+    y_pred = np.argmax(X.dot(self.W), axis=1)
     ###########################################################################
     #                           END OF YOUR CODE                              #
     ###########################################################################
@@ -112,8 +116,11 @@ class LinearClassifier(object):
     - loss as a single float
     - gradient with respect to self.W; an array of the same shape as W
     """
+    # result = X_batch.dot(self.W) - reg * np.linalg.norm(self.W, axis=0) 
+    # result_idx = argmax(result)
+    # loss = np.average(result_idx != y_batch)
+    # dW = ?
     pass
-
 
 class LinearSVM(LinearClassifier):
   """ A subclass that uses the Multiclass SVM loss function """
