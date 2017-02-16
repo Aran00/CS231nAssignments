@@ -36,6 +36,8 @@ def softmax_loss_naive(W, X, y, reg):
   num_dim = X.shape[1]
   for i in xrange(num_train):
     scores = X[i].dot(W)  # 1*C or (C,)
+    # As when scores[i] is too large, the exp result would overflow, we need to shift this result. It would not change the final loss.
+    scores -= np.max(scores)
     exp_scores = np.exp(scores) # (C, )
     exp_sum = np.sum(exp_scores)
     loss_i = (-1.0) * (scores[y[i]] - np.log(exp_sum))  
@@ -49,7 +51,7 @@ def softmax_loss_naive(W, X, y, reg):
   #############################################################################
   loss /= num_train
   dW /= num_train
-  loss += 0.5 * reg * np.sum(W * W) 
+  loss += 0.5 * reg * np.sum(np.power(W, 2)) 
   dW += reg * W                     
   return loss, dW
 
@@ -74,6 +76,7 @@ def softmax_loss_vectorized(W, X, y, reg):
   num_train = X.shape[0]
   
   scores = X.dot(W)    # N * C  
+  scores -= np.vstack(np.max(scores, axis=1))
   exp_scores = np.exp(scores) # N * C
   y_scores = [scores[index, classIdx] for index, classIdx in enumerate(y)]
   # y_scores_v = np.vstack(y_scores)
@@ -90,7 +93,7 @@ def softmax_loss_vectorized(W, X, y, reg):
   dW = (-1.0) * (dW_first - dW_second) / num_train  
 
   # Add regularization to the loss.
-  loss += 0.5 * reg * np.sum(W * W)
+  loss += reg * np.sum(np.power(W, 2))/2
   # np.sum(W*W) is the same as np.linalg.norm(wc1) + ... + np.linalg.norm(wcC), so its gradient is (dwc1, dwc2, ..., dwcC) = 2*W  
   dW += reg * W  
   #############################################################################

@@ -68,13 +68,21 @@ class TwoLayerNet(object):
     N, D = X.shape
 
     # Compute the forward pass
-    scores = None
+    scores = None  # (N, C)
     #############################################################################
     # TODO: Perform the forward pass, computing the class scores for the input. #
     # Store the result in the scores variable, which should be an array of      #
     # shape (N, C).                                                             #
     #############################################################################
-    pass
+    layer1_output = X.dot(W1) + b1   # (N, H)
+    relu_factor = layer1_output > 0
+    layer1_activated = layer1_output * relu_factor
+    
+    layer2_output = layer1_output.dot(W2) + b2   # (N, C)
+    layer2_substracted = layer2_output - np.vstack(np.max(layer2_output, axis=1))
+    layer2_softmax = np.exp(layer2_substracted)
+    scores = layer2_softmax / np.vstack(np.linalg.norm(layer2_softmax, axis=1))
+    
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -92,7 +100,11 @@ class TwoLayerNet(object):
     # classifier loss. So that your results match ours, multiply the            #
     # regularization loss by 0.5                                                #
     #############################################################################
-    pass
+    y_score_factor = np.zeros(scores.shape)
+    for index, classIdx in enumerate(y):
+      y_score_factor[index, classIdx] = 1
+    y_scores = scores * y_score_factor
+    # loss = np.mean(-np.log(y_scores))
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -104,7 +116,7 @@ class TwoLayerNet(object):
     # and biases. Store the results in the grads dictionary. For example,       #
     # grads['W1'] should store the gradient on W1, and be a matrix of same size #
     #############################################################################
-    pass
+    d_y_scores = np.mean(-1.0/y_scores)
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
