@@ -39,6 +39,7 @@ class TwoLayerNet(object):
     self.params['W2'] = std * np.random.randn(hidden_size, output_size)
     self.params['b2'] = np.zeros(output_size)
 
+  # The result is right. But why... I need to modify the program to make it more readable.
   def loss(self, X, y=None, reg=0.0):
     """
     Compute the loss and gradients for a two layer fully connected neural
@@ -74,16 +75,17 @@ class TwoLayerNet(object):
     # Store the result in the scores variable, which should be an array of      #
     # shape (N, C).                                                             #
     #############################################################################
-    layer1_output = X.dot(W1) + b1   # (N, H)
-    relu_factor = layer1_output > 0
-    layer1_activated = layer1_output * relu_factor
+    out1 = X.dot(W1) + b1   # (N, H), layer 1 output
+    relu_factor = out1 > 0
+    act1 = out1 * relu_factor  # layer 1 activated result
     
-    layer2_output = layer1_activated.dot(W2) + b2   # (N, C)
-    # print layer2_output
-    layer2_substracted = layer2_output - np.vstack(np.max(layer2_output, axis=1))
-    layer2_softmax = np.exp(layer2_substracted)
-    layer2_sum = np.vstack(np.sum(layer2_softmax, axis=1)) 
-    scores = layer2_softmax / layer2_sum
+    out2 = act1.dot(W2) + b2   # (N, C) layer 2 output
+    scores  = out2
+    # Shift layer2_output
+    subs2 = out2 - np.vstack(np.max(out2, axis=1))   
+    softmax2 = np.exp(subs2)   # layer 2 softmax result
+    layer2_sum = np.sum(softmax2, axis=1)    # (N,) 
+    # scores = layer2_softmax / layer2_sum
     
     #############################################################################
     #                              END OF YOUR CODE                             #
@@ -91,7 +93,7 @@ class TwoLayerNet(object):
     
     # If the targets are not given then jump out, we're done
     if y is None:
-      return layer2_output
+      return scores
 
     C = b2.shape[0]
     # Compute the loss
@@ -103,14 +105,15 @@ class TwoLayerNet(object):
     # classifier loss. So that your results match ours, multiply the            #
     # regularization loss by 0.5                                                #
     #############################################################################
-    y_score_factor = np.zeros(scores.shape)
+    y_score_factor = np.zeros(softmax2.shape)
     for index, classIdx in enumerate(y):
       y_score_factor[index, classIdx] = 1
-    y_scores = scores * y_score_factor    # N * C
+    margins_mat = softmax2 * y_score_factor    # (N, C)
     
     sum_factor = np.ones((C, 1))
-    y_scores_each = np.hstack(y_scores.dot(sum_factor))  # (N,)
-    loss = np.mean(-np.log(y_scores_each))
+    margins = np.hstack(margins_mat.dot(sum_factor))  # (N,)
+    loss_vec = np.log(layer2_sum) - np.log(margins)
+    loss = np.mean(loss_vec)
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -122,21 +125,23 @@ class TwoLayerNet(object):
     # and biases. Store the results in the grads dictionary. For example,       #
     # grads['W1'] should store the gradient on W1, and be a matrix of same size #
     #############################################################################
-    d_y_scores_each = (-1.0/N*y_scores_each)
-    d_y_scores = np.dot(np.vstack(d_y_scores_each), sum_factor.T)
-    d_scores = d_y_scores * y_score_factor
-    d_layer2_softmax = d_scores / layer2_sum
-    d_layer2_substracted = d_layer2_softmax * layer2_softmax
-    d_layer2_output = d_layer2_substracted
-    d_W2 = np.dot(layer1_output.T, d_layer2_output)
-    d_b2 = np.mean(d_layer2_output, axis=0)
+    d_loss_vec = 1.0/N * np.ones(N)
+    d_margins = d_loss_vec / margins
+    d_margins_mat = np.dot(np.vstack(d_margins), sum_factor.T)
+    d_softmax2_second = d_margins_mat * y_score_factor
+    d_softmax2_first = np.vstack(d_loss_vec * (1.0/layer2_sum)) * np.ones((N, C))  
+    d_softmax2 = d_softmax2_first - d_softmax2_second
+    d_subs2 = d_softmax2 * softmax2
+    d_out2 = d_subs2
+    d_W2 = np.dot(act1.T, d_out2)
+    # Each element of b is related with a column in output, according to chain rule, we need to sum them
+    d_b2 = np.sum(d_out2, axis=0)   
     
-    d_layer1_output = np.dot(d_layer2_output, W2.T)
-    d_layer1_activated = d_layer1_output * relu_factor
-    d_W1 = np.dot(X.T, d_layer1_activated)
-    d_b1 = np.mean(d_layer1_activated, axis=0)
+    d_act1 = np.dot(d_out2, W2.T)
+    d_out1 = d_act1 * relu_factor
+    d_W1 = np.dot(X.T, d_out1)
+    d_b1 = np.sum(d_out1, axis=0)
     
-    # print reg * (np.sum(np.power(W1, 2)) + np.sum(np.power(W2, 2)))/2 
     loss += reg * (np.sum(np.power(W1, 2)) + np.sum(np.power(W2, 2)))/2 
     d_W1 += reg * W1
     d_W2 += reg * W2
