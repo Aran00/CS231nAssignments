@@ -185,6 +185,9 @@ class TwoLayerNet(object):
     train_acc_history = []
     val_acc_history = []
 
+    W1, b1 = self.params['W1'], self.params['b1']
+    W2, b2 = self.params['W2'], self.params['b2']
+    
     for it in xrange(num_iters):
       X_batch = None
       y_batch = None
@@ -193,7 +196,9 @@ class TwoLayerNet(object):
       # TODO: Create a random minibatch of training data and labels, storing  #
       # them in X_batch and y_batch respectively.                             #
       #########################################################################
-      pass
+      batch_indexes = np.random.choice(num_train, batch_size)
+      X_batch = X[batch_indexes]
+      y_batch = y[batch_indexes]  
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -208,7 +213,12 @@ class TwoLayerNet(object):
       # using stochastic gradient descent. You'll need to use the gradients   #
       # stored in the grads dictionary defined above.                         #
       #########################################################################
-      pass
+      d_W1, d_b1 = grads['W1'], grads['b1']
+      d_W2, d_b2 = grads['W2'], grads['b2']
+      W1 -= learning_rate * d_W1
+      W2 -= learning_rate * d_W2
+      b1 -= learning_rate * d_b1
+      b2 -= learning_rate * d_b2
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -253,7 +263,8 @@ class TwoLayerNet(object):
     ###########################################################################
     # TODO: Implement this function; it should be VERY simple!                #
     ###########################################################################
-    pass
+    scores = self.loss(X)
+    y_pred = np.argmax(scores, axis=1)
     ###########################################################################
     #                              END OF YOUR CODE                           #
     ###########################################################################
