@@ -1,3 +1,6 @@
 *.pyc
 .python-version
 assignment*/cs231n/datasets
+assignment*/cs231n/build/
+assignment*/cs231n/*.c
+assignment*/cs231n/*.so
