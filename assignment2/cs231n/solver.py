@@ -138,6 +138,7 @@ class Solver(object):
     # Set up some variables for book-keeping
     self.epoch = 0
     self.best_val_acc = 0
+    self.best_train_acc = 0
     self.best_params = {}
     self.loss_history = []
     self.train_acc_history = []
@@ -254,7 +255,15 @@ class Solver(object):
           print '(Epoch %d / %d) train acc: %f; val_acc: %f' % (
                  self.epoch, self.num_epochs, train_acc, val_acc)
 
+        ## Add a log message forcefully here
+        if epoch_end and (t + 1) % (self.print_every * iterations_per_epoch) == 0:
+            print '(Epoch %d / %d) train acc: %f; val_acc: %f' % (
+                 self.epoch, self.num_epochs, train_acc, val_acc)
+        
         # Keep track of the best model
+        if train_acc > self.best_train_acc:
+          self.best_train_acc = train_acc  
+        
         if val_acc > self.best_val_acc:
           self.best_val_acc = val_acc
           self.best_params = {}

@@ -181,7 +181,16 @@ class FullyConnectedNet(object):
     # beta2, etc. Scale parameters should be initialized to one and shift      #
     # parameters should be initialized to zero.                                #
     ############################################################################
-    pass
+    
+    # if seed is not None:
+    #     np.random.seed(seed)
+    
+    for i in xrange(self.num_layers):
+        layer_input_dim = input_dim if i == 0 else hidden_dims[i-1]
+        layer_output_dim = num_classes if i == self.num_layers - 1 else hidden_dims[i]
+        layer_index = i + 1
+        self.params['W%d'%layer_index] = weight_scale * np.random.randn(layer_input_dim, layer_output_dim)
+        self.params['b%d'%layer_index] = np.zeros(layer_output_dim)
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -224,7 +233,8 @@ class FullyConnectedNet(object):
       self.dropout_param['mode'] = mode   
     if self.use_batchnorm:
       for bn_param in self.bn_params:
-        bn_param[mode] = mode
+        bn_param['mode'] = mode
+        #bn_param[mode] = mode
 
     scores = None
     ############################################################################
@@ -239,7 +249,29 @@ class FullyConnectedNet(object):
     # self.bn_params[1] to the forward pass for the second batch normalization #
     # layer, etc.                                                              #
     ############################################################################
-    pass
+    layer_caches = []
+    former_output = X
+    for i in xrange(self.num_layers - 1):
+        layer_idx = i + 1
+        layer_cache = {}
+        layer_input = former_output
+        W = self.params['W%d'%layer_idx]
+        b = self.params['b%d'%layer_idx]
+        affine_output, affine_cache = affine_forward(layer_input, W, b)
+        layer_cache['affine'] = affine_cache 
+        former_output = affine_output
+        if self.use_batchnorm:
+            pass
+        relu_output, relu_cache = relu_forward(former_output)
+        layer_cache['relu'] = relu_cache 
+        former_output = relu_output
+        if self.use_dropout:
+            pass           
+        layer_caches.append(layer_cache)
+        
+    W_last = self.params['W%d'%self.num_layers]
+    b_last = self.params['b%d'%self.num_layers]  
+    scores, affine_cache = affine_forward(former_output, W_last, b_last)
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -262,7 +294,34 @@ class FullyConnectedNet(object):
     # automated tests, make sure that your L2 regularization includes a factor #
     # of 0.5 to simplify the expression for the gradient.                      #
     ############################################################################
-    pass
+    loss, dscores = softmax_loss(scores, y)
+    d_hiddens_out, dW_last, db_last = affine_backward(dscores, affine_cache)
+    # print d_hiddens_out.shape
+    grads['W%d'%self.num_layers] = dW_last
+    grads['b%d'%self.num_layers] = db_last
+    
+    for i in xrange(self.num_layers - 2, -1, -1):
+        layer_idx = i + 1
+        layer_cache = layer_caches[i]
+        if self.use_dropout:
+            pass
+        
+        # print layer_cache['relu'].shape
+        d_relu_in = relu_backward(d_hiddens_out, layer_cache['relu'])
+        d_affine_out = d_relu_in
+        if self.use_batchnorm:
+            pass
+        d_affine_in, dW, db = affine_backward(d_affine_out, layer_cache['affine'])
+        d_hiddens_out = d_affine_in
+        grads['W%d'%layer_idx] = dW
+        grads['b%d'%layer_idx] = db
+    
+    # Add regulation
+    for i in xrange(self.num_layers):
+        layer_idx = i + 1
+        W = self.params['W%d'%layer_idx]
+        loss += 0.5 * self.reg * np.sum(np.power(W, 2))
+        grads['W%d'%layer_idx] += self.reg * W
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
