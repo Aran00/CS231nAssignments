@@ -258,16 +258,19 @@ class FullyConnectedNet(object):
         W = self.params['W%d'%layer_idx]
         b = self.params['b%d'%layer_idx]
         affine_output, affine_cache = affine_forward(layer_input, W, b)
-        layer_cache['affine'] = affine_cache 
-        former_output = affine_output
+        layer_cache['affine'] = affine_cache
         if self.use_batchnorm:
             former_output, batch_cache = batchnorm_forward(affine_output, self.bn_params[i]['gamma'], self.bn_params[i]['beta'], self.bn_params[i])
             layer_cache['batch'] = batch_cache
+        else:
+            former_output = affine_output
         relu_output, relu_cache = relu_forward(former_output)
         layer_cache['relu'] = relu_cache 
-        former_output = relu_output
         if self.use_dropout:
-            pass           
+            former_output, dropout_cache = dropout_forward(relu_output, self.dropout_param)   
+            layer_cache['dropout'] = dropout_cache
+        else:
+            former_output = relu_output
         layer_caches.append(layer_cache)
         
     W_last = self.params['W%d'%self.num_layers]
@@ -296,8 +299,8 @@ class FullyConnectedNet(object):
     # of 0.5 to simplify the expression for the gradient.                      #
     ############################################################################
     loss, dscores = softmax_loss(scores, y)
-    d_hiddens_out, dW_last, db_last = affine_backward(dscores, affine_cache)
-    # print d_hiddens_out.shape
+    d_latter_out, dW_last, db_last = affine_backward(dscores, affine_cache)
+    # print d_latter_out.shape
     grads['W%d'%self.num_layers] = dW_last
     grads['b%d'%self.num_layers] = db_last
     
@@ -305,16 +308,15 @@ class FullyConnectedNet(object):
         layer_idx = i + 1
         layer_cache = layer_caches[i]
         if self.use_dropout:
-            pass
+            d_latter_out = dropout_backward(d_latter_out, layer_cache['dropout'])
         
         # print layer_cache['relu'].shape
-        d_relu_in = relu_backward(d_hiddens_out, layer_cache['relu'])
+        d_relu_in = relu_backward(d_latter_out, layer_cache['relu'])
         if self.use_batchnorm:
             d_affine_out, _, _ = batchnorm_backward(d_relu_in, layer_cache['batch'])
         else:
             d_affine_out = d_relu_in    
-        d_affine_in, dW, db = affine_backward(d_affine_out, layer_cache['affine'])
-        d_hiddens_out = d_affine_in
+        d_latter_out, dW, db = affine_backward(d_affine_out, layer_cache['affine'])
         grads['W%d'%layer_idx] = dW
         grads['b%d'%layer_idx] = db
     

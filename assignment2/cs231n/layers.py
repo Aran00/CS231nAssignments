@@ -109,6 +109,7 @@ def relu_backward(dout, cache):
   return dx
 
 
+# A faint inconsistency... Why don't they put gamma and beta in bn_param?
 def batchnorm_forward(x, gamma, beta, bn_param):
   """
   Forward pass for batch normalization.
@@ -306,7 +307,8 @@ def dropout_forward(x, dropout_param):
     # TODO: Implement the training phase forward pass for inverted dropout.   #
     # Store the dropout mask in the mask variable.                            #
     ###########################################################################
-    pass
+    mask = (np.random.rand(*x.shape) > p).astype(x.dtype)
+    out = x * mask
     ###########################################################################
     #                            END OF YOUR CODE                             #
     ###########################################################################
@@ -314,7 +316,7 @@ def dropout_forward(x, dropout_param):
     ###########################################################################
     # TODO: Implement the test phase forward pass for inverted dropout.       #
     ###########################################################################
-    pass
+    out = x
     ###########################################################################
     #                            END OF YOUR CODE                             #
     ###########################################################################
@@ -341,13 +343,67 @@ def dropout_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the training phase backward pass for inverted dropout.  #
     ###########################################################################
-    pass
+    dx = dout * mask
     ###########################################################################
     #                            END OF YOUR CODE                             #
     ###########################################################################
   elif mode == 'test':
     dx = dout
   return dx
+
+
+def conv_forward_naive_naive(x, w, b, conv_param):
+  """
+  A naive implementation of the forward pass for a convolutional layer.
+
+  The input consists of N data points, each with C channels, height H and width
+  W. We convolve each input with F different filters, where each filter spans
+  all C channels and has height HH and width HH.
+
+  Input:
+  - x: Input data of shape (N, C, H, W)
+  - w: Filter weights of shape (F, C, HH, WW)
+  - b: Biases, of shape (F,)
+  - conv_param: A dictionary with the following keys:
+    - 'stride': The number of pixels between adjacent receptive fields in the
+      horizontal and vertical directions.
+    - 'pad': The number of pixels that will be used to zero-pad the input.
+
+  Returns a tuple of:
+  - out: Output data, of shape (N, F, H', W') where H' and W' are given by
+    H' = 1 + (H + 2 * pad - HH) / stride
+    W' = 1 + (W + 2 * pad - WW) / stride
+  - cache: (x, w, b, conv_param)
+  """
+  out = None
+  #############################################################################
+  # TODO: Implement the convolutional forward pass.                           #
+  # Hint: you can use the function np.pad for padding.                        #
+  #############################################################################
+  N, C, H, W = x.shape
+  F, _, HH, WW = w.shape
+  stride = conv_param['stride']
+  pad = conv_param['pad']
+  H_out = 1 + (H + 2 * pad - HH) / stride
+  W_out = 1 + (W + 2 * pad - WW) / stride
+  out = np.zeros((N, F, H_out, W_out))
+  for i in xrange(N):
+    x_i = x[i, :]   # (C, H, W)
+    x_padding = np.pad(x_i, ((0,0),(pad,pad),(pad,pad)), mode='constant', constant_values=0)  # (C, H+2*pad, W+2*pad)
+    # print x_padding.shape
+    for j in xrange(F):
+      w_j = w[j, :]   # (C, HH, WW)
+      for p in xrange(H_out):
+        x_idx_h = p * stride
+        for q in xrange(W_out):
+          x_idx_w = q * stride
+          x_w = x_padding[:, x_idx_h:(x_idx_h+HH), x_idx_w:(x_idx_w+WW)]  
+          out[i, j, p, q] = np.dot(w_j.ravel(), x_w.ravel()) + b[j]   
+  #############################################################################
+  #                             END OF YOUR CODE                              #
+  #############################################################################
+  cache = (x, w, b, conv_param)
+  return out, cache
 
 
 def conv_forward_naive(x, w, b, conv_param):
@@ -378,7 +434,29 @@ def conv_forward_naive(x, w, b, conv_param):
   # TODO: Implement the convolutional forward pass.                           #
   # Hint: you can use the function np.pad for padding.                        #
   #############################################################################
-  pass
+  N, C, H, W = x.shape
+  F, _, HH, WW = w.shape
+  stride = conv_param['stride']
+  pad = conv_param['pad']
+  H_out = 1 + (H + 2 * pad - HH) / stride
+  W_out = 1 + (W + 2 * pad - WW) / stride
+  out = np.zeros((N, F, H_out, W_out))
+  x_padding = np.zeros((N, C, H + 2*pad, W + 2*pad))
+  x_padding[:, :, pad:(H+pad), pad:(W+pad)] = x
+  '''
+  D = C * HH * WW
+  w_ravel = w.reshape(F, -1)    # (F, D)
+  x_ravel = x                   # (N, H_out, W_out, D)
+  '''
+  for i,j in [(i,j) for i in range(N) for j in range(F)]:
+    x_i = x_padding[i, :]   # (C, H, W)
+    # print x_padding.shape
+    w_j = w[j, :]   # (C, HH, WW)
+    for p, q in [(p,q) for p in range(H_out) for q in range(W_out)]:
+      x_idx_h = p * stride
+      x_idx_w = q * stride
+      x_w = x_i[:, x_idx_h:(x_idx_h+HH), x_idx_w:(x_idx_w+WW)]  
+      out[i, j, p, q] = np.dot(w_j.ravel(), x_w.ravel()) + b[j]   
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -386,6 +464,7 @@ def conv_forward_naive(x, w, b, conv_param):
   return out, cache
 
 
+# Seems the different filters shares the same backward multiply factor.
 def conv_backward_naive(dout, cache):
   """
   A naive implementation of the backward pass for a convolutional layer.
@@ -403,7 +482,7 @@ def conv_backward_naive(dout, cache):
   #############################################################################
   # TODO: Implement the convolutional backward pass.                          #
   #############################################################################
-  pass
+  
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
