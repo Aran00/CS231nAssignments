@@ -53,6 +53,7 @@ def load_coco_data(base_dir='cs231n/datasets/coco_captioning',
 
 
 def decode_captions(captions, idx_to_word):
+  print captions
   singleton = False
   if captions.ndim == 1:
     singleton = True
