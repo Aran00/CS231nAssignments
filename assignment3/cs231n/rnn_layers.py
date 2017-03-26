@@ -181,7 +181,16 @@ def word_embedding_forward(x, W):
   #                                                                            #
   # HINT: This should be very simple.                                          #
   ##############################################################################
-  pass
+  N, T = x.shape
+  V, D = W.shape
+  out = np.zeros((N, T, D))
+  for i in xrange(N):
+    for j in xrange(T):
+      idx = x[i, j]
+      if idx < 0 or idx >= V:
+        raise ValueError('Invalid index of x: "%d"' % idx)  
+      out[i, j, :] = W[idx, :] 
+  cache = (x, W)
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
@@ -203,13 +212,22 @@ def word_embedding_backward(dout, cache):
   Returns:
   - dW: Gradient of word embedding matrix, of shape (V, D).
   """
-  dW = None
+  dW = None 
   ##############################################################################
   # TODO: Implement the backward pass for word embeddings.                     #
   #                                                                            #
   # HINT: Look up the function np.add.at                                       #
   ##############################################################################
-  pass
+  N, T, D = dout.shape
+  x, W = cache
+  V, _ = W.shape
+  dW = np.zeros_like(W)
+  for i in xrange(N):
+    for j in xrange(T):
+      idx = x[i, j]
+      if idx < 0 or idx >= V:
+        raise ValueError('Invalid index of x: "%d"' % idx)
+      dW[idx, :] += dout[i, j, :]
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
