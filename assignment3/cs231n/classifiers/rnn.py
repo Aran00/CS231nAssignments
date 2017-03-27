@@ -136,6 +136,7 @@ class CaptioningRNN(object):
     # gradients for self.params[k].                                            #
     ############################################################################
     h0, cache_affine = affine_forward(features, W_proj, b_proj)  # (N, H)
+    print h0.shape
     x, cache_embed = word_embedding_forward(captions_in, W_embed)
     h, cache_rnn = rnn_forward(x, h0, Wx, Wh, b)
     scores, cache_temporal_affine = temporal_affine_forward(h, W_vocab, b_vocab)
@@ -206,15 +207,26 @@ class CaptioningRNN(object):
     # a loop.                                                                 #
     ###########################################################################
     # for i in captions.shape[0]:
-          
-    h0, cache_affine = affine_forward(features, W_proj, b_proj)  # (N, H)
-    x, cache_embed = word_embedding_forward(captions_in, W_embed)
-    h , cache_rnn = rnn_forward(x, h0, Wx, Wh, b)
-    scores, cache_temporal_affine = temporal_affine_forward(h, W_vocab, b_vocab)
-    print scores.shape
-    word_to_idx = self.idx_to_word
+    # print captions.shape
+    # print W_embed.shape[0]
+    N, T = captions.shape
+    D, H = Wx.shape
     
-    captions[] = 
+    prev_h, cache_affine = affine_forward(features, W_proj, b_proj)  # (N, H)
+    last_word = self._start * np.ones((N, 1), dtype=np.int32)
+    # print last_word
+    print "The shape of Wh", Wh.shape
+    captions[:, 0] = last_word.ravel()
+    for i in xrange(T - 1):
+      x_oneslot, _ = word_embedding_forward(last_word, W_embed)
+      x = x_oneslot[:, 0, :]
+      next_h, _ = rnn_step_forward(x, prev_h, Wx, Wh, b)
+      scores, _ = temporal_affine_forward(next_h.reshape(N, 1, H), W_vocab, b_vocab)
+      pred_word = np.argmax(scores.reshape(N, -1), axis=1)
+      captions[:, i+1] = pred_word
+      last_word = np.vstack(pred_word)
+      prev_h = next_h  
+        
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################

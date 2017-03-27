@@ -32,6 +32,7 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
   # hidden state and any values you need for the backward pass in the next_h   #
   # and cache variables respectively.                                          #
   ##############################################################################
+    
   out_temp = np.dot(prev_h, Wh) + np.dot(x, Wx) + b
   next_h = np.tanh(out_temp)
   cache = (next_h, x, prev_h, Wx, Wh)
@@ -145,7 +146,8 @@ def rnn_backward(dh, cache):
   db = np.zeros(H)
   dprev_h = np.zeros((N, H))
   for t in xrange(T-1, -1, -1):
-    dnext_h = dh[:, t, :] + dprev_h
+    # The gradient of h[t+1] affects the gradient of h[t] as well. So we need to add it
+    dnext_h = dh[:, t, :] + dprev_h    
     cache_t = cache[t]
     dx_t, dprev_h, dWx_t, dWh_t, db_t = rnn_step_backward(dnext_h, cache_t)
     dx[:, t, :] = dx_t
@@ -273,7 +275,22 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
   # TODO: Implement the forward pass for a single timestep of an LSTM.        #
   # You may want to use the numerically stable sigmoid implementation above.  #
   #############################################################################
-  pass
+  N, D = x.shape
+  _, H = prev_h.shape
+  a = np.dot(x, Wx) + np.dot(prev_h, Wh) + b
+  print a.shape
+  a_i = a[:, :H]
+  a_f = a[:, H:2*H]
+  a_o = a[:, 2*H:3*H]
+  a_g = a[:, 3*H:]  
+  i = sigmoid(a_i)
+  f = sigmoid(a_f)
+  o = sigmoid(a_o)
+  g = np.tanh(a_g)
+  
+  next_c = f * prev_c + i * g
+  next_h = o * np.tanh(next_c)
+  cache = ()
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
@@ -372,7 +389,6 @@ def lstm_backward(dh, cache):
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
-  
   return dx, dh0, dWx, dWh, db
 
 
