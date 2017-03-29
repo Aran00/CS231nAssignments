@@ -87,16 +87,19 @@ class PretrainedCNN(object):
             self.params[k] = v.T.copy()
           else:
             raise ValueError('shapes for %s do not match' % k)
+          # print k
         if k.startswith('running_mean'):
-          i = int(k[12:]) - 1
+          i = int(k[12:]) - 1      # 12: The length of 'running_mean'
           assert self.bn_params[i]['running_mean'].shape == v.shape
           self.bn_params[i]['running_mean'] = v.copy()
           if verbose: print k, v.shape
+          # print "running_mean is in", k
         if k.startswith('running_var'):
           i = int(k[11:]) - 1
           assert v.shape == self.bn_params[i]['running_var'].shape
           self.bn_params[i]['running_var'] = v.copy()
           if verbose: print k, v.shape
+          # print "running_var is in"      
         
     for k, v in self.params.iteritems():
       self.params[k] = v.astype(self.dtype)
@@ -122,7 +125,7 @@ class PretrainedCNN(object):
       array of shape (N, C, 64, 64).
     - start: The index of the layer to start from. start=0 starts from the first
       convolutional layer. Default is 0.
-    - end: The index of the layer to end at. start=11 ends at the last
+    - end: The index of the layer to end at. end=11 ends at the last
       fully-connected layer, returning class scores. Default is 11.
     - mode: The mode to use, either 'test' or 'train'. We need this because
       batch normalization behaves differently at training time and test time.
