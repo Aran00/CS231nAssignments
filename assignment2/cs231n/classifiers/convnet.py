@@ -38,7 +38,7 @@ class MultipleLayerConvNet(object):
   # [conv-relu-pool]xN - conv - relu - [affine]xM - [softmax or SVM]
   # [conv-relu-pool]XN - [affine]XM - [softmax or SVM]
   I think the first could be one special case of the second, with the pool {'pool_height': 1, 'pool_width': 1, 'stride': 1}, so we can only realize the model of 
-  [conv-relu-pool]XN - [affine]XM - [softmax or SVM]
+  [conv-relu-pool]XN - [affine-relu]XM - [softmax or SVM] (Not sure why the tutor doesn't add relu behind affine...)
 
   The network operates on minibatches of data that have shape (N, C, H, W)
   consisting of N images, each with height H and width W and with C input
@@ -48,7 +48,7 @@ class MultipleLayerConvNet(object):
   can pass them in.
   """
     
-  def __init__(self, input_dim=(3, 32, 32), conv_layer_configs, 
+  def __init__(self, input_dim=(3, 32, 32), conv_layer_configs, hidden_layers, 
                num_classes=10, weight_scale=1e-3, reg=0.0, verbose=False
                dtype=np.float32)
     self.params = {}
@@ -66,6 +66,7 @@ class MultipleLayerConvNet(object):
     # affine layer.                                                            #
     ############################################################################
     C, H, W = input_dim
+    self.conv_layer_configs = conv_layer_configs
     conv_layer_count = len(conv_layer_configs)
     
     for i in xrange(conv_layer_count):
@@ -90,15 +91,69 @@ class MultipleLayerConvNet(object):
       if H<=1 or W<=1:
          raise ValueError('Invalid output size: H=%d, W=%d"' % (H, W))  
     
-    output_dim = H * W * conv_layer_configs[conv_layer_count-1].num_filters
-    output_layer_idx = conv_layer_count + 1
-    self.params['W%d'%output_layer_idx] = weight_scale * np.random.randn(output_dim, num_classes)
-    self.params['b%d'%output_layer_idx] = np.zeros(num_classes)
+    conv_output_dim = H * W * conv_layer_configs[conv_layer_count-1].num_filters
     
+    # Because conv layers have an output, the remain layers count is len(hidden_layers) + 1, and the last is output layer
+    self.hidden_layer_count = len(hidden_layers)
+    for i in xrange(self.hidden_layer_count):
+      idx = conv_layer_count + i
+      layer_index = idx + 1
+      input_idm = conv_output_dim if i == 0 else hidden_layers[i-1]
+      self.params['W%d'%layer_index] = weight_scale * np.random.randn(input_dim, hidden_layers[i])
+      self.params['b%d'%layer_index] = np.zeros(hidden_layers[i]) 
+
+    output_layer_idx = conv_layer_count + self.hidden_layer_count + 1
+    self.params['W%d'%output_layer_idx] = weight_scale * np.random.randn(hidden_layers[self.hidden_layer_count-1], num_classes)
+    self.params['b%d'%output_layer_idx] = np.zeros(num_classes)
+  
     for k, v in self.params.iteritems():
       self.params[k] = v.astype(dtype)
     
     
   def loss(self, X, y=None):
-    pass
+    """
+    Evaluate loss and gradient for the multi-layer convolutional-affine network.
+    """
+    conv_layer_count = len(self.conv_layer_configs)
+    hidden_layer_count = self.hidden_layer_count
+    next_layer_input = X
+    layer_caches = []
+    # Forward to get output and loss
+    for i in xrange(conv_layer_count + hidden_layer_count):
+      layer_index = i + 1    
+      W_cur = self.params['W%d'%layer_idx]
+      b_cur = self.params['b%d'%layer_idx]
+      if i < conv_layer_count:
+        config = self.conv_layer_configs[i]  
+        current_layer_out, current_layer_cache = conv_relu_pool_forward(next_layer_input, W_cur, b_cur, config.conv_param, config.pool_param)
+      else
+        current_layer_out, current_layer_cache = affine_relu_forward(next_layer_input, W_cur, b_cur) 
+      layer_caches.append(current_layer_cache)
+      next_layer_input = current_layer_out
 
+    output_layer_idx = conv_layer_count + hidden_layer_count + 1
+    W_output = self.params['W%d'%output_layer_idx]
+    b_output = self.params['b%d'%output_layer_idx]
+    scores, _ = affine_forward(next_layer_input, W_output, b_output)
+
+    if y is None:
+      return scores
+
+    loss, grads = 0, {}
+    # Backward to get gradient
+    loss, dscores = softmax_loss(scores, y)  
+    d_out, grads['W%d'%output_layer_idx], grads['b%d'%output_layer_idx] = affine_backward(dscores, layer3_cache)
+    
+    for i in xrange(conv_layer_count + hidden_layer_count - 1, -1, -1):
+      layer_index = i + 1 
+      backward_func = affine_relu_backward if i >= conv_layer_count else conv_relu_pool_backward
+      d_out, grads['W%d'%layer_idx], grads['b%d'%layer_idx] = backward_func(d_out, layer_caches[i])
+    
+    # Add regulation
+    for i in xrange(conv_layer_count + hidden_layer_count + 1):
+        layer_idx = i + 1
+        W = self.params['W%d'%layer_idx]
+        loss += 0.5 * self.reg * np.sum(np.power(W, 2))
+        grads['W%d'%layer_idx] += self.reg * W
+    
+    return loss, grads
