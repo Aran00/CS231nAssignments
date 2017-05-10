@@ -104,7 +104,7 @@ class MultipleLayerConvNet(object):
       pool_stride = conv_config.pool_param["stride"]
       H = 1 + (H - pool_height)/pool_stride
       W = 1 + (W - pool_width)/pool_stride  
-      if H<=1 or W<=1:
+      if H<=0 or W<=0:
          raise ValueError('Invalid output size: H=%d, W=%d"' % (H, W))  
     
     conv_output_dim = H * W * conv_layer_configs[conv_layer_count-1].num_filters
@@ -126,8 +126,7 @@ class MultipleLayerConvNet(object):
   
     for k, v in self.params.iteritems():
       self.params[k] = v.astype(dtype)
-    
-    
+
   def loss(self, X, y=None):
     """
     Evaluate loss and gradient for the multi-layer convolutional-affine network.
@@ -155,7 +154,7 @@ class MultipleLayerConvNet(object):
         config = self.hidden_layer_configs[i-conv_layer_count]
         if config.use_batch_norm:
           config.bn_param["mode"] = mode
-          current_layer_out, current_layer_cache = affine_relu_forward(next_layer_input, W_cur, b_cur)
+          current_layer_out, current_layer_cache = affine_bn_relu_forward(next_layer_input, W_cur, b_cur, config.bn_param)
         else:
           current_layer_out, current_layer_cache = affine_relu_forward(next_layer_input, W_cur, b_cur)
       layer_caches.append(current_layer_cache)
@@ -164,7 +163,7 @@ class MultipleLayerConvNet(object):
     output_layer_idx = conv_layer_count + hidden_layer_count + 1
     W_output = self.params['W%d'%output_layer_idx]
     b_output = self.params['b%d'%output_layer_idx]
-    scores, _ = affine_forward(next_layer_input, W_output, b_output)
+    scores, final_layer_cache = affine_forward(next_layer_input, W_output, b_output)
 
     if y is None:
       return scores
@@ -172,11 +171,16 @@ class MultipleLayerConvNet(object):
     loss, grads = 0, {}
     # Backward to get gradient
     loss, dscores = softmax_loss(scores, y)  
-    d_out, grads['W%d'%output_layer_idx], grads['b%d'%output_layer_idx] = affine_backward(dscores, layer3_cache)
+    d_out, grads['W%d'%output_layer_idx], grads['b%d'%output_layer_idx] = affine_backward(dscores, final_layer_cache)
     
     for i in xrange(conv_layer_count + hidden_layer_count - 1, -1, -1):
-      layer_index = i + 1 
-      backward_func = affine_relu_backward if i >= conv_layer_count else conv_relu_pool_backward
+      layer_idx = i + 1
+      if i >= conv_layer_count:
+        config = self.hidden_layer_configs[i - conv_layer_count]
+        backward_func = affine_bn_relu_backward if config.use_batch_norm else affine_relu_backward
+      else:
+        config = self.conv_layer_configs[i]
+        backward_func = conv_bn_relu_pool_backward if config.use_batch_norm else conv_relu_pool_backward
       d_out, grads['W%d'%layer_idx], grads['b%d'%layer_idx] = backward_func(d_out, layer_caches[i])
     
     # Add regulation
