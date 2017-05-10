@@ -2,6 +2,7 @@ import numpy as np
 from cs231n.classifiers.linear_svm import *
 from cs231n.classifiers.softmax import *
 
+
 class LinearClassifier(object):
 
   def __init__(self):

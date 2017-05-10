@@ -29,8 +29,23 @@ class ConvLayerConfig(object):
       'stride': pool_stride
     }
     self.use_batch_norm = use_batch_norm
+    if use_batch_norm:
+      self.bn_param = {'mode': 'train', 'gamma': np.ones(num_filters), 'beta': np.zeros(num_filters)}
+    
 
-
+class HiddenLayerConfig(object):
+  """
+  The configuration class contains these parameters:
+  1. hidden layer dim
+  2. use batch norm or not
+  """   
+  def __init__(self, hidden_layer_dim=100, use_batch_norm=False):
+    self.hidden_layer_dim = hidden_layer_dim
+    self.use_batch_norm = use_batch_norm
+    if use_batch_norm: 
+      self.bn_param = {'mode': 'train', 'gamma': np.ones(hidden_layer_dim), 'beta': np.zeros(hidden_layer_dim)}  
+               
+    
 class MultipleLayerConvNet(object):
   """
   A multiple layer convolutional network with the following architecture:
@@ -48,9 +63,9 @@ class MultipleLayerConvNet(object):
   can pass them in.
   """
     
-  def __init__(self, input_dim=(3, 32, 32), conv_layer_configs, hidden_layers, 
-               num_classes=10, weight_scale=1e-3, reg=0.0, verbose=False
-               dtype=np.float32)
+  def __init__(self, conv_layer_configs, hidden_layer_configs, input_dim=(3, 32, 32),
+               num_classes=10, weight_scale=1e-3, reg=0.0, verbose=False,
+               dtype=np.float32):
     self.params = {}
     self.reg = reg
     self.dtype = dtype
@@ -80,6 +95,7 @@ class MultipleLayerConvNet(object):
       # After conv
       padding = conv_config.conv_param["pad"]
       conv_stride = conv_config.conv_param["stride"]
+      filter_size = conv_config.filter_size
       H = 1 + (H + 2 * padding - filter_size)/conv_stride
       W = 1 + (W + 2 * padding - filter_size)/conv_stride
       # After pooling
@@ -94,16 +110,18 @@ class MultipleLayerConvNet(object):
     conv_output_dim = H * W * conv_layer_configs[conv_layer_count-1].num_filters
     
     # Because conv layers have an output, the remain layers count is len(hidden_layers) + 1, and the last is output layer
-    self.hidden_layer_count = len(hidden_layers)
-    for i in xrange(self.hidden_layer_count):
+    self.hidden_layer_configs = hidden_layer_configs
+    hidden_layer_count = len(hidden_layer_configs)
+    for i in xrange(hidden_layer_count):
+      hidden_layer_dim = hidden_layer_configs[i].hidden_layer_dim
       idx = conv_layer_count + i
       layer_index = idx + 1
-      input_idm = conv_output_dim if i == 0 else hidden_layers[i-1]
-      self.params['W%d'%layer_index] = weight_scale * np.random.randn(input_dim, hidden_layers[i])
-      self.params['b%d'%layer_index] = np.zeros(hidden_layers[i]) 
+      input_dim = conv_output_dim if i == 0 else hidden_layer_configs[i-1].hidden_layer_dim
+      self.params['W%d'%layer_index] = weight_scale * np.random.randn(input_dim, hidden_layer_dim)
+      self.params['b%d'%layer_index] = np.zeros(hidden_layer_dim)
 
     output_layer_idx = conv_layer_count + self.hidden_layer_count + 1
-    self.params['W%d'%output_layer_idx] = weight_scale * np.random.randn(hidden_layers[self.hidden_layer_count-1], num_classes)
+    self.params['W%d'%output_layer_idx] = weight_scale * np.random.randn(hidden_layer_configs[hidden_layer_count-1], num_classes)
     self.params['b%d'%output_layer_idx] = np.zeros(num_classes)
   
     for k, v in self.params.iteritems():
@@ -114,20 +132,32 @@ class MultipleLayerConvNet(object):
     """
     Evaluate loss and gradient for the multi-layer convolutional-affine network.
     """
+    mode = 'test' if y is None else 'train'
+    
     conv_layer_count = len(self.conv_layer_configs)
-    hidden_layer_count = self.hidden_layer_count
+    hidden_layer_count = len(self.hidden_layer_configs)
     next_layer_input = X
     layer_caches = []
     # Forward to get output and loss
     for i in xrange(conv_layer_count + hidden_layer_count):
-      layer_index = i + 1    
+      layer_idx = i + 1
       W_cur = self.params['W%d'%layer_idx]
       b_cur = self.params['b%d'%layer_idx]
       if i < conv_layer_count:
-        config = self.conv_layer_configs[i]  
-        current_layer_out, current_layer_cache = conv_relu_pool_forward(next_layer_input, W_cur, b_cur, config.conv_param, config.pool_param)
-      else
-        current_layer_out, current_layer_cache = affine_relu_forward(next_layer_input, W_cur, b_cur) 
+        config = self.conv_layer_configs[i]
+        if config.use_batch_norm:
+          config.bn_param["mode"] = mode
+          current_layer_out, current_layer_cache = conv_bn_relu_pool_forward(next_layer_input, W_cur, b_cur,
+                                                                          config.conv_param, config.bn_param, config.pool_param)
+        else:
+          current_layer_out, current_layer_cache = conv_relu_pool_forward(next_layer_input, W_cur, b_cur, config.conv_param, config.pool_param)
+      else:
+        config = self.hidden_layer_configs[i-conv_layer_count]
+        if config.use_batch_norm:
+          config.bn_param["mode"] = mode
+          current_layer_out, current_layer_cache = affine_relu_forward(next_layer_input, W_cur, b_cur)
+        else:
+          current_layer_out, current_layer_cache = affine_relu_forward(next_layer_input, W_cur, b_cur)
       layer_caches.append(current_layer_cache)
       next_layer_input = current_layer_out
 
