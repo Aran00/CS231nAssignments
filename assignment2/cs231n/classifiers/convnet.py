@@ -25,7 +25,7 @@ class ConvLayerConfig(object):
     }
     self.pool_param = {
       'pool_height': pool_height,
-      'pool_widht': pool_width,
+      'pool_width': pool_width,
       'stride': pool_stride
     }
     self.use_batch_norm = use_batch_norm
@@ -107,7 +107,7 @@ class MultipleLayerConvNet(object):
       if H<=0 or W<=0:
          raise ValueError('Invalid output size: H=%d, W=%d"' % (H, W))  
     
-    conv_output_dim = H * W * conv_layer_configs[conv_layer_count-1].num_filters
+    conv_output_dim = H * W * conv_layer_configs[conv_layer_count-1].num_filters if conv_layer_count > 0 else C*W*H
     
     # Because conv layers have an output, the remain layers count is len(hidden_layers) + 1, and the last is output layer
     self.hidden_layer_configs = hidden_layer_configs
@@ -120,8 +120,9 @@ class MultipleLayerConvNet(object):
       self.params['W%d'%layer_index] = weight_scale * np.random.randn(input_dim, hidden_layer_dim)
       self.params['b%d'%layer_index] = np.zeros(hidden_layer_dim)
 
-    output_layer_idx = conv_layer_count + self.hidden_layer_count + 1
-    self.params['W%d'%output_layer_idx] = weight_scale * np.random.randn(hidden_layer_configs[hidden_layer_count-1], num_classes)
+    output_layer_idx = conv_layer_count + hidden_layer_count + 1
+    last_hidden_layer_dim = hidden_layer_configs[hidden_layer_count-1].hidden_layer_dim
+    self.params['W%d'%output_layer_idx] = weight_scale * np.random.randn(last_hidden_layer_dim, num_classes)
     self.params['b%d'%output_layer_idx] = np.zeros(num_classes)
   
     for k, v in self.params.iteritems():
