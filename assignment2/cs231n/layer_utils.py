@@ -41,7 +41,7 @@ def affine_bn_relu_forward(x, w, b, bn_param):
   - cache: Object to give to the backward pass
   """
   a, fc_cache = affine_forward(x, w, b)
-  m, bn_cache = batchnorm_forward(x, bn_param["gamma"], bn_param["beta"], bn_param)
+  m, bn_cache = batchnorm_forward(a, bn_param["gamma"], bn_param["beta"], bn_param)
   out, relu_cache = relu_forward(m)
   cache = (fc_cache, bn_cache, relu_cache)
   return out, cache
@@ -53,7 +53,7 @@ def affine_bn_relu_backward(dout, cache):
   """
   fc_cache, bn_cache, relu_cache = cache
   da = relu_backward(dout, relu_cache)
-  dm = batchnorm_backward(da, bn_cache)
+  dm, _, _ = batchnorm_backward(da, bn_cache)
   dx, dw, db = affine_backward(dm, fc_cache)
   return dx, dw, db
 
@@ -145,8 +145,9 @@ def conv_bn_relu_pool_backward(dout, cache):
   """
   conv_cache, bn_cache, relu_cache, pool_cache = cache
   ds = max_pool_backward_fast(dout, pool_cache)
-  dm = spatial_batchnorm_backward(ds, bn_cache)
-  da = relu_backward(dm, relu_cache)
-  dx, dw, db = conv_backward_fast(da, conv_cache)
+  da = relu_backward(ds, relu_cache)
+  #print "Shape of da is: ", da.shape
+  dm, _, _ = spatial_batchnorm_backward(da, bn_cache)
+  dx, dw, db = conv_backward_fast(dm, conv_cache)
   return dx, dw, db
 

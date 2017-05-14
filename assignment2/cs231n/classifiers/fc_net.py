@@ -182,8 +182,9 @@ class FullyConnectedNet(object):
     # parameters should be initialized to zero.                                #
     ############################################################################
     
-    # if seed is not None:
-    #     np.random.seed(seed)
+    # The param "seed" is used for dropout, but we still use it as weight initialization seed here 
+    if seed is not None:
+        np.random.seed(seed)
     
     for i in xrange(self.num_layers):
         layer_input_dim = input_dim if i == 0 else hidden_dims[i-1]
@@ -191,6 +192,9 @@ class FullyConnectedNet(object):
         layer_index = i + 1
         self.params['W%d'%layer_index] = weight_scale * np.random.randn(layer_input_dim, layer_output_dim)
         self.params['b%d'%layer_index] = np.zeros(layer_output_dim)
+        print 'The first row of W%d:'%layer_index, self.params['W%d'%layer_index][0, :]
+        print 'b%d:'%layer_index, self.params['b%d'%layer_index]
+
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################

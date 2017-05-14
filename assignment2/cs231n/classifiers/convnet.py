@@ -14,9 +14,10 @@ class ConvLayerConfig(object):
   4. pool parameter (pool_param): pool_height, pool_width, stride
   5. Use spatial batch norm or not
   """
-  def __init__(self, num_filters=32, filter_size=3, stride=1, pad=-1, 
+  def __init__(self, weight_scale=5e-2, num_filters=32, filter_size=3, stride=1, pad=-1, 
                pool_height=2, pool_width=2, pool_stride=2, use_batch_norm=False):
     pad = pad if pad >= 0 else (filter_size - 1) / 2
+    self.weight_scale = weight_scale
     self.num_filters = num_filters
     self.filter_size = filter_size
     self.conv_param = {
@@ -39,7 +40,8 @@ class HiddenLayerConfig(object):
   1. hidden layer dim
   2. use batch norm or not
   """   
-  def __init__(self, hidden_layer_dim=100, use_batch_norm=False):
+  def __init__(self, weight_scale=5e-2, hidden_layer_dim=100, use_batch_norm=False):
+    self.weight_scale = weight_scale
     self.hidden_layer_dim = hidden_layer_dim
     self.use_batch_norm = use_batch_norm
     if use_batch_norm: 
@@ -64,8 +66,8 @@ class MultipleLayerConvNet(object):
   """
     
   def __init__(self, conv_layer_configs, hidden_layer_configs, input_dim=(3, 32, 32),
-               num_classes=10, weight_scale=1e-3, reg=0.0, verbose=False,
-               dtype=np.float32):
+               num_classes=10, reg=0.0, verbose=False, output_layer_weight_scale=5e-2,
+               dtype=np.float32, seed=None):
     self.params = {}
     self.reg = reg
     self.dtype = dtype
@@ -84,13 +86,20 @@ class MultipleLayerConvNet(object):
     self.conv_layer_configs = conv_layer_configs
     conv_layer_count = len(conv_layer_configs)
     
+    # Use seed to confine the initial weights
+    if seed is not None:
+        np.random.seed(seed)
+        
     for i in xrange(conv_layer_count):
       layer_index = i + 1
       conv_config = conv_layer_configs[i]
       channel_count = C if i == 0 else conv_layer_configs[i-1].num_filters
       
-      self.params['W%d'%layer_index] = weight_scale * np.random.randn(conv_config.num_filters, channel_count, conv_config.filter_size, conv_config.filter_size)
+      self.params['W%d'%layer_index] = conv_config.weight_scale * np.random.randn(conv_config.num_filters, channel_count, conv_config.filter_size, conv_config.filter_size)
       self.params['b%d'%layer_index] = np.zeros(conv_config.num_filters)
+      #print 'The first row of W%d:'%layer_index, self.params['W%d'%layer_index][0, :]
+      #print 'b%d:'%layer_index, self.params['b%d'%layer_index]
+
       # We still need an iteration to get the final output size here  
       # After conv
       padding = conv_config.conv_param["pad"]
@@ -113,17 +122,24 @@ class MultipleLayerConvNet(object):
     self.hidden_layer_configs = hidden_layer_configs
     hidden_layer_count = len(hidden_layer_configs)
     for i in xrange(hidden_layer_count):
-      hidden_layer_dim = hidden_layer_configs[i].hidden_layer_dim
+      hidden_layer_config = hidden_layer_configs[i]
+      hidden_layer_dim = hidden_layer_config.hidden_layer_dim
       idx = conv_layer_count + i
       layer_index = idx + 1
       input_dim = conv_output_dim if i == 0 else hidden_layer_configs[i-1].hidden_layer_dim
-      self.params['W%d'%layer_index] = weight_scale * np.random.randn(input_dim, hidden_layer_dim)
+      self.params['W%d'%layer_index] = hidden_layer_config.weight_scale * np.random.randn(input_dim, hidden_layer_dim)
       self.params['b%d'%layer_index] = np.zeros(hidden_layer_dim)
+      #print 'The first row of W%d:'%layer_index, self.params['W%d'%layer_index][0, :]
+      #print 'b%d:'%layer_index, self.params['b%d'%layer_index]
+
 
     output_layer_idx = conv_layer_count + hidden_layer_count + 1
     last_hidden_layer_dim = hidden_layer_configs[hidden_layer_count-1].hidden_layer_dim
-    self.params['W%d'%output_layer_idx] = weight_scale * np.random.randn(last_hidden_layer_dim, num_classes)
+    self.params['W%d'%output_layer_idx] = output_layer_weight_scale * np.random.randn(last_hidden_layer_dim, num_classes)
     self.params['b%d'%output_layer_idx] = np.zeros(num_classes)
+    #print 'The first row of W%d:'%output_layer_idx, self.params['W%d'%output_layer_idx][0, :]
+    #print 'b%d:'%output_layer_idx, self.params['b%d'%output_layer_idx]
+
   
     for k, v in self.params.iteritems():
       self.params[k] = v.astype(dtype)
