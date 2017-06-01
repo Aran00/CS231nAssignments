@@ -2,19 +2,6 @@ import numpy as np
 from cs231n.solver import Solver
 
 
-solver_config_temp = {
-    "num_epochs": 20,
-    "batch_size": 1000,
-    "update_rule": 'sgd_momentum',
-    "optim_config": {
-        'learning_rate': 1e-2,
-    },
-    "lr_decay": 0.95,
-    "verbose": True,
-    "print_every": 10
-}
-
-
 def cross_val_score(model, solver_config, X, y, cv=5):
     '''
     # Make cv just be an integer here
