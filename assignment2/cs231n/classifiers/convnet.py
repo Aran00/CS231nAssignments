@@ -36,14 +36,16 @@ class ConvLayerConfig(object):
             'stride': conv_params.stride,
             'pad': conv_params.pad
         }
-        self.pool_param = {
+        self.pool_param = None if pool_params is None else {
             'pool_height': pool_params.pool_height,
             'pool_width': pool_params.pool_width,
             'stride': pool_params.pool_stride
         }
         self.use_batch_norm = use_batch_norm
-        if use_batch_norm:
-            self.bn_param = {'mode': 'train', 'gamma': np.ones(num_filters), 'beta': np.zeros(num_filters)}
+        self.bn_param = {'mode': 'train', 
+                         'gamma': np.ones(num_filters), 
+                         'beta': np.zeros(num_filters)
+                        } if use_batch_norm else None
 
 
 class HiddenLayerConfig(object):
@@ -117,12 +119,13 @@ class MultipleLayerConvNet(object):
             filter_size = conv_config.filter_size
             H = 1 + (H + 2 * padding - filter_size)/conv_stride
             W = 1 + (W + 2 * padding - filter_size)/conv_stride
-            # After pooling
-            pool_height = conv_config.pool_param["pool_height"]
-            pool_width = conv_config.pool_param["pool_width"]
-            pool_stride = conv_config.pool_param["stride"]
-            H = 1 + (H - pool_height)/pool_stride
-            W = 1 + (W - pool_width)/pool_stride
+            if conv_config.pool_param is not None:
+                # After pooling
+                pool_height = conv_config.pool_param["pool_height"]
+                pool_width = conv_config.pool_param["pool_width"]
+                pool_stride = conv_config.pool_param["stride"]
+                H = 1 + (H - pool_height)/pool_stride
+                W = 1 + (W - pool_width)/pool_stride
             if H <= 0 or W <= 0:
                 raise ValueError('Invalid output size: H=%d, W=%d"' % (H, W))
 
@@ -187,9 +190,8 @@ class MultipleLayerConvNet(object):
                 config = self.conv_layer_configs[i]
                 if config.use_batch_norm:
                     config.bn_param["mode"] = mode
-                    current_layer_out, current_layer_cache = conv_bn_relu_pool_forward(next_layer_input, W_cur, b_cur, config.conv_param, config.bn_param, config.pool_param)
-                else:
-                    current_layer_out, current_layer_cache = conv_relu_pool_forward(next_layer_input, W_cur, b_cur, config.conv_param, config.pool_param)
+                current_layer_out, current_layer_cache = conv_bn_relu_pool_forward(next_layer_input, W_cur, b_cur, config.conv_param, config.bn_param, config.pool_param)
+                #print len(current_layer_cache)
             else:
                 config = self.hidden_layer_configs[i-conv_layer_count]
                 if config.use_batch_norm:
@@ -220,7 +222,7 @@ class MultipleLayerConvNet(object):
                 backward_func = affine_bn_relu_backward if config.use_batch_norm else affine_relu_backward
             else:
                 config = self.conv_layer_configs[i]
-                backward_func = conv_bn_relu_pool_backward if config.use_batch_norm else conv_relu_pool_backward
+                backward_func = conv_bn_relu_pool_backward
             d_out, grads['W%d'%layer_idx], grads['b%d'%layer_idx] = backward_func(d_out, layer_caches[i])
 
         # Add regulation

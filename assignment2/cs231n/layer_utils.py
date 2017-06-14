@@ -117,7 +117,7 @@ def conv_relu_pool_backward(dout, cache):
   return dx, dw, db
 
 
-def conv_bn_relu_pool_forward(x, w, b, conv_param, bn_param, pool_param):
+def conv_bn_relu_pool_forward(x, w, b, conv_param, bn_param=None, pool_param=None):
   """
   Convenience layer that performs a convolution, a ReLU, and a pool.
 
@@ -130,13 +130,19 @@ def conv_bn_relu_pool_forward(x, w, b, conv_param, bn_param, pool_param):
   - out: Output from the pooling layer
   - cache: Object to give to the backward pass
   """
-  a, conv_cache = conv_forward_fast(x, w, b, conv_param)
+  conv_out, conv_cache = conv_forward_fast(x, w, b, conv_param)
   # We assume that gamma and beta are all in bn_param dict
-  m, bn_cache = spatial_batchnorm_forward(a, bn_param["gamma"], bn_param["beta"], bn_param)
-  s, relu_cache = relu_forward(m)
-  out, pool_cache = max_pool_forward_fast(s, pool_param)
+  prev_out = conv_out
+  bn_cache = None
+  if bn_param is not None:
+    prev_out, bn_cache = spatial_batchnorm_forward(conv_out, bn_param["gamma"], bn_param["beta"], bn_param)
+  relu_out, relu_cache = relu_forward(prev_out)
+  prev_out = relu_out
+  pool_cache = None
+  if pool_param is not None:
+    prev_out, pool_cache = max_pool_forward_fast(relu_out, pool_param)
   cache = (conv_cache, bn_cache, relu_cache, pool_cache)
-  return out, cache
+  return prev_out, cache
 
 
 def conv_bn_relu_pool_backward(dout, cache):
@@ -144,10 +150,14 @@ def conv_bn_relu_pool_backward(dout, cache):
   Backward pass for the conv-relu-pool convenience layer
   """
   conv_cache, bn_cache, relu_cache, pool_cache = cache
-  ds = max_pool_backward_fast(dout, pool_cache)
+  ds = dout
+  if pool_cache is not None:
+    ds = max_pool_backward_fast(dout, pool_cache)
   da = relu_backward(ds, relu_cache)
   #print "Shape of da is: ", da.shape
-  dm, _, _ = spatial_batchnorm_backward(da, bn_cache)
+  dm = da
+  if bn_cache is not None:
+    dm, _, _ = spatial_batchnorm_backward(da, bn_cache)
   dx, dw, db = conv_backward_fast(dm, conv_cache)
   return dx, dw, db
 
